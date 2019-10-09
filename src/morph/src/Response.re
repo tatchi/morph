@@ -92,21 +92,13 @@ let not_found = (~message="Not found", res: t) => {
   |> Lwt.return;
 };
 
-let get_file_stream = file_name => {
-  let read_only_flags = [Unix.O_RDONLY];
-  let read_only_perm = 444;
-  let fd = Unix.openfile(file_name, read_only_flags, read_only_perm);
-  Lwt_io.of_unix_fd(fd, ~mode=Lwt_io.Input) |> Lwt_io.read_chars;
-};
-
 let static = (file_path, res: t) => {
   Sys.file_exists(file_path)
     ? {
-      let size = Unix.stat(file_path).st_size;
-      let stream = get_file_stream(file_path);
+      let stream = Lwt_io.lines_of_file(file_path)
       add_header(("Content-type", Magic_mime.lookup(file_path)), res)
-      |> add_header(("Content-length", string_of_int(size)))
-      |> set_body(`Stream(stream))
+      |> add_header(("Transfer-Encoding", "chunked"))
+      |> set_body(`StringStream(stream))
       |> Lwt.return;
     }
     : not_found(~message="File does not exist", res);
