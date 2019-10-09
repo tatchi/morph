@@ -31,11 +31,16 @@ let respond =
     let response_body =
       respond_with_streaming(request_descriptor, http_response);
     let read_stream = () => {
+      let readSize = ref(0)
       let _ =
         Lwt_stream.iter(
           body => {
+            readSize := readSize^ + String.length(body)
             write_string(response_body, body);
-            flush_body(response_body, () => ());
+            if(readSize^ > 20000){
+              flush_body(response_body, () => ());
+              readSize := 0
+            }
           },
           stream,
         );
